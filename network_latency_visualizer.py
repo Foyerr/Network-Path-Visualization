@@ -7,7 +7,7 @@ import json
 from pyvis.network import Network
 
 app = Flask(__name__)
-data_file_path = r'logpath'
+data_file_path = r'C:\Users\Walke\Downloads\SolarWinds-FT-TracerouteNG-2021.3.0.130\Logs\Tracing results 11-02-11 24.08.2024.log'
 parsed_data = []
 
 
@@ -55,8 +55,6 @@ def index():
         return "No data available."
 
     G = nx.DiGraph()
-
-    hopCompare = {}
     ipCompare = []
     lastIP = None
     prevHopCount = 0
@@ -100,41 +98,112 @@ def index():
     html_content = net.generate_html()
 
     # Insert JavaScript to send positions to server after stabilization
-    js_code = '''
-        <script type="text/javascript">
-            // Add a button to the document
-            var saveButton = document.createElement('button');
-            saveButton.innerHTML = 'Save Positions';
-            document.body.appendChild(saveButton);
+    js_code = '''<script type="text/javascript">
+    // Create the refresh container with a checkbox, input for interval, and save button
+    var refreshContainer = document.createElement('div');
+    refreshContainer.innerHTML = `
+        <label>
+            <input type="checkbox" id="refreshCheckbox"> Enable Auto-Refresh
+        </label>
+        <label>
+            Refresh every <input type="number" id="refreshInterval" value="10" min="1">s
+        </label>
+        <button type="button" id="refreshButton">Refresh Positions</button>
+        <button type="button" id="saveButton">Save Positions</button>
+    `;
+    document.body.insertBefore(refreshContainer, document.body.firstChild);
 
-            // Add an event listener to the button for saving positions
-            saveButton.addEventListener('click', function () {
-                var positions = network.getPositions();
-                
-                // Send the positions to the server via fetch
-                fetch('/save_positions', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify(positions)
-                })
-                .then(response => response.json())
-                .then(data => {
-                    console.log('Success:', data);
-                })
-                .catch((error) => {
-                    console.error('Error:', error);
+    var refreshCheckbox = document.getElementById('refreshCheckbox');
+    var refreshIntervalInput = document.getElementById('refreshInterval');
+    var saveButton = document.getElementById('saveButton');
+    var refreshButton = document.getElementById('refreshButton');
+    var refreshIntervalId = null;
+
+    // Enable or disable the auto-refresh based on checkbox state
+    refreshCheckbox.addEventListener('change', function () {
+        if (refreshCheckbox.checked) {
+            // Start refreshing every X seconds
+            var interval = parseInt(refreshIntervalInput.value) * 1000;
+            refreshIntervalId = setInterval(function () {
+                fetchAndUpdateGraph();
+            }, interval);
+        } else {
+            // Stop refreshing
+            clearInterval(refreshIntervalId);
+            refreshIntervalId = null;
+        }
+    });
+
+    // Update refresh interval dynamically when the user changes the input
+    refreshIntervalInput.addEventListener('change', function () {
+        if (refreshCheckbox.checked) {
+            clearInterval(refreshIntervalId);
+            var interval = parseInt(refreshIntervalInput.value) * 1000;
+            refreshIntervalId = setInterval(function () {
+                fetchAndUpdateGraph();
+            }, interval);
+        }
+    });
+
+    // Define the function to save node positions
+    function savePos() {
+        var positions = network.getPositions();
+
+        // Send the positions to the server via fetch
+        fetch('/save_positions', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(positions)
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log('Success:', data);
+        })
+        .catch((error) => {
+            console.error('Error:', error);
+        });
+    }
+
+    function fetchAndUpdateGraph() {
+        fetch('/fetch_positions')
+        .then(response => response.json())
+        .then(data => {
+            if (data.error) {
+                console.error(data.error);
+                return;
+            }
+
+            // Iterate through the updated positions and set them on the network graph
+            for (let nodeId in data) {
+                let position = data[nodeId];
+                network.body.nodes[nodeId].setOptions({
+                    x: position.x,
+                    y: position.y
                 });
-            });
-        </script>
-        </body>
+            }
+
+            // Redraw the network with updated positions
+            network.redraw();
+        })
+        .catch(error => {
+            console.error('Error fetching positions:', error);
+        });
+    }
+
+    // Attach the savePos function to the button's click event
+    saveButton.addEventListener('click', savePos);
+    refreshButton.addEventListener('click',fetchAndUpdateGraph)
+</script>
+</body>
     '''
+
 
     # Replace </body> with js_code
     html_content = html_content.replace('</body>', js_code)
 
-    # Insert meta refresh tag to refresh the page every 10 seconds
+    # # Insert meta refresh tag to refresh the page every 10 seconds
     # html_content = html_content.replace(
     #     '</head>',
     #     '<meta http-equiv="refresh" content="10">\n</head>'
@@ -157,6 +226,18 @@ def save_positions():
         json.dump(positions, f)
     return 'OK'
 
+
+@app.route('/fetch_positions', methods=['GET'])
+def fetch_positions():
+    positions_file_path = 'positions.json'
+
+    # Check if the positions file exists
+    if os.path.exists(positions_file_path):
+        with open(positions_file_path, 'r') as f:
+            positions = json.load(f)
+        return json.dumps(positions), 200, {'Content-Type': 'application/json'}
+    else:
+        return json.dumps({"error": "Positions file not found."}), 404, {'Content-Type': 'application/json'}
 
 if __name__ == '__main__':
     threading.Thread(target=monitor_file_changes, daemon=True).start()

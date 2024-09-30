@@ -1,0 +1,3 @@
+Flask
+networkx
+pyvis
