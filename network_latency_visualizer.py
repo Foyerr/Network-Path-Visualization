@@ -7,7 +7,7 @@ import json
 from pyvis.network import Network
 
 app = Flask(__name__)
-data_file_path = r'C:\Users\Walke\Downloads\SolarWinds-FT-TracerouteNG-2021.3.0.130\Logs\Tracing results 11-02-11 24.08.2024.log'
+data_file_path = r'C:\Path\To\Log'
 parsed_data = []
 
 
