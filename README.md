@@ -18,3 +18,6 @@ A Flask web application that monitors a log file, parses network trace data, and
 - Flask 
 - Networkx
 - Pyvis
+
+
+![image](https://github.com/user-attachments/assets/6d9fc066-f70b-44f5-9a69-b2d7743d28ae)
