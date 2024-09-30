@@ -4,7 +4,7 @@ A Flask web application that monitors a log file, parses network trace data, and
 
 ## Features
 
-- Monitors a TracertNG log file for changes.
+- Monitors a [TraceRouteNG](https://www.solarwinds.com/free-tools/traceroute-ng) log file for changes.
 - Parses network trace data from the log file.
 - Visualizes the network path as an interactive directed graph.
 - Allows users to save node positions for consistent visualization.
